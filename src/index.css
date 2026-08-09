@@ -1,0 +1,88 @@
+@import "tailwindcss";
+
+@layer base {
+  :root {
+    --font-heading: 'Lexend', sans-serif;
+    --font-body: 'Manrope', sans-serif;
+    --color-sand: #FAF9F7;
+    --color-sand-dark: #F2EFE9;
+    --color-charcoal: #171818;
+    --color-gold: #6A5D43;
+    --color-gold-light: #8C7853;
+    --color-gold-accent: #C5A880;
+  }
+
+  body {
+    font-family: var(--font-body);
+    background-color: var(--color-sand);
+    color: var(--color-charcoal);
+  }
+
+  h1, h2, h3, h4, h5, h6, .font-heading {
+    font-family: var(--font-heading);
+  }
+}
+
+/* Custom Scrollbar */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: #FAF9F7;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #6A5D43;
+  border-radius: 9999px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #171818;
+}
+
+/* Marquee / Infinite Velocity Animation */
+@keyframes marquee {
+  0% { transform: translateX(0%); }
+  100% { transform: translateX(-50%); }
+}
+
+.animate-marquee {
+  display: flex;
+  width: max-content;
+  animation: marquee 35s linear infinite;
+}
+
+.animate-marquee:hover {
+  animation-play-state: paused;
+}
+
+/* Smooth Image reveal effect */
+.img-zoom-hover {
+  overflow: hidden;
+}
+
+.img-zoom-hover img {
+  transition: transform 0.8s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.img-zoom-hover:hover img {
+  transform: scale(1.06);
+}
+
+/* Luxury Gold Glow */
+.gold-glow {
+  box-shadow: 0 10px 30px -10px rgba(106, 93, 67, 0.25);
+}
+
+.charcoal-gradient {
+  background: linear-gradient(135deg, #171818 0%, #262727 100%);
+}
+
+.gold-gradient-text {
+  background: linear-gradient(135deg, #6A5D43 0%, #8C7853 50%, #C5A880 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+

@@ -1,0 +1,6 @@
+{
+  "name": "RUANG PINTAR",
+  "description": "Studio Arsitektur & Interior Mewah - Furniture Bespoke & Desain Ruang Impian",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
