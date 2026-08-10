@@ -42,7 +42,7 @@ export const AdminModal: React.FC<AdminModalProps> = ({
   const [isEditingProduct, setIsEditingProduct] = useState<boolean>(false);
   const [editingProduct, setEditingProduct] = useState<Product | null>(null);
 
-  // Form Fields
+  // Form Fields Lengkap
   const [prodTitle, setProdTitle] = useState('');
   const [prodCategory, setProdCategory] = useState<ProductCategory>('Bespoke Furniture');
   const [prodPrice, setProdPrice] = useState<number>(0);
@@ -128,15 +128,15 @@ export const AdminModal: React.FC<AdminModalProps> = ({
     setProdCategory(prod.category);
     setProdPrice(prod.price);
     setProdImage(prod.image);
-    setProdDescription(prod.description);
+    setProdDescription(prod.description || '');
     setProdFeatures(prod.features ? prod.features.join('\n') : '');
-    setProdDimensions(prod.dimensions);
-    setProdLeadTime(prod.leadTime);
+    setProdDimensions(prod.dimensions || '');
+    setProdLeadTime(prod.leadTime || '');
     setProdFeatured(!!prod.featured);
     setIsEditingProduct(true);
   };
 
-  // SIMPAN PRODUK LANGSUNG KE SUPABASE DATABASE
+  // SIMPAN PRODUK DENGAN SPESIFIKASI LENGKAP KE SUPABASE DATABASE
   const handleSaveProduct = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!prodTitle.trim() || !prodImage.trim() || prodPrice <= 0) {
@@ -181,7 +181,7 @@ export const AdminModal: React.FC<AdminModalProps> = ({
 
       if (onRefreshProducts) onRefreshProducts();
       setIsEditingProduct(false);
-      alert('Produk berhasil disimpan ke Supabase Database!');
+      alert('Produk beserta spesifikasinya berhasil disimpan ke Database!');
     } catch (err: any) {
       alert('Gagal menyimpan produk ke database: ' + err.message);
     } finally {
@@ -202,20 +202,11 @@ export const AdminModal: React.FC<AdminModalProps> = ({
   };
 
   const totalSalesValue = orders.reduce((sum, ord) => sum + ord.totalAmount, 0);
-  const pendingOrdersCount = orders.filter((o) => o.status === 'Pending').length;
-  const inConsultationOrdersCount = orders.filter((o) => o.status === 'In Consultation').length;
 
   const filteredProducts = products.filter(
     (p) =>
       p.title.toLowerCase().includes(catalogSearch.toLowerCase()) ||
       p.category.toLowerCase().includes(catalogSearch.toLowerCase())
-  );
-
-  const filteredOrders = orders.filter(
-    (o) =>
-      o.customerName.toLowerCase().includes(orderSearch.toLowerCase()) ||
-      o.phone.toLowerCase().includes(orderSearch.toLowerCase()) ||
-      o.id.toLowerCase().includes(orderSearch.toLowerCase())
   );
 
   return (
@@ -420,6 +411,9 @@ export const AdminModal: React.FC<AdminModalProps> = ({
                         <h3 className="text-xl font-heading font-bold text-[#171818]">
                           Kelola Katalog Produk & Karya
                         </h3>
+                        <p className="text-xs text-[#171818]/70">
+                          Tambah produk baru, edit spesifikasi, ubah foto, dan atur ketersediaan.
+                        </p>
                       </div>
 
                       <button
@@ -451,6 +445,7 @@ export const AdminModal: React.FC<AdminModalProps> = ({
                               <th className="p-3.5">Nama Produk</th>
                               <th className="p-3.5">Kategori</th>
                               <th className="p-3.5">Harga</th>
+                              <th className="p-3.5">Flagship</th>
                               <th className="p-3.5 text-right">Aksi</th>
                             </tr>
                           </thead>
@@ -467,17 +462,28 @@ export const AdminModal: React.FC<AdminModalProps> = ({
                                 <td className="p-3.5 font-bold text-[#171818] max-w-xs">{p.title}</td>
                                 <td className="p-3.5 font-semibold text-[#6A5D43]">{p.category}</td>
                                 <td className="p-3.5 font-extrabold text-[#171818]">{formatRupiah(p.price)}</td>
+                                <td className="p-3.5">
+                                  {p.featured ? (
+                                    <span className="text-[10px] font-bold bg-[#6A5D43] text-white px-2 py-0.5 rounded-full">
+                                      Ya
+                                    </span>
+                                  ) : (
+                                    <span className="text-[10px] text-gray-400">Tidak</span>
+                                  )}
+                                </td>
                                 <td className="p-3.5 text-right">
                                   <div className="flex items-center justify-end gap-2">
                                     <button
                                       onClick={() => openEditProduct(p)}
                                       className="p-2 bg-[#F2EFE9] hover:bg-[#6A5D43] hover:text-white text-[#171818] rounded-lg transition-colors"
+                                      title="Edit Produk"
                                     >
                                       <Edit3 className="w-3.5 h-3.5" />
                                     </button>
                                     <button
                                       onClick={() => handleDeleteProduct(p.id)}
                                       className="p-2 bg-red-100 hover:bg-red-700 hover:text-white text-red-700 rounded-lg transition-colors"
+                                      title="Hapus Produk"
                                     >
                                       <Trash2 className="w-3.5 h-3.5" />
                                     </button>
@@ -496,6 +502,7 @@ export const AdminModal: React.FC<AdminModalProps> = ({
           )}
         </motion.div>
 
+        {/* MODAL LENGKAP TAMBAH / EDIT PRODUK */}
         {isEditingProduct && (
           <div className="fixed inset-0 z-60 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm">
             <div className="bg-[#FAF9F7] text-[#171818] p-6 sm:p-8 rounded-3xl max-w-xl w-full max-h-[90vh] overflow-y-auto space-y-4 border border-[#6A5D43]">
@@ -515,7 +522,7 @@ export const AdminModal: React.FC<AdminModalProps> = ({
                     type="text"
                     value={prodTitle}
                     onChange={(e) => setProdTitle(e.target.value)}
-                    className="w-full p-2.5 bg-white rounded-xl border border-[#6A5D43]/30"
+                    className="w-full p-2.5 bg-white rounded-xl border border-[#6A5D43]/30 focus:outline-none focus:border-[#6A5D43]"
                     required
                   />
                 </div>
@@ -526,7 +533,7 @@ export const AdminModal: React.FC<AdminModalProps> = ({
                     <select
                       value={prodCategory}
                       onChange={(e) => setProdCategory(e.target.value as ProductCategory)}
-                      className="w-full p-2.5 bg-white rounded-xl border border-[#6A5D43]/30"
+                      className="w-full p-2.5 bg-white rounded-xl border border-[#6A5D43]/30 focus:outline-none focus:border-[#6A5D43]"
                     >
                       <option value="Bespoke Furniture">Bespoke Furniture</option>
                       <option value="Luxury Living">Luxury Living</option>
@@ -543,17 +550,18 @@ export const AdminModal: React.FC<AdminModalProps> = ({
                       type="number"
                       value={prodPrice}
                       onChange={(e) => setProdPrice(Number(e.target.value))}
-                      className="w-full p-2.5 bg-white rounded-xl border border-[#6A5D43]/30"
+                      className="w-full p-2.5 bg-white rounded-xl border border-[#6A5D43]/30 focus:outline-none focus:border-[#6A5D43]"
                       required
                     />
                   </div>
                 </div>
 
+                {/* FILE UPLOAD PHOTO */}
                 <div className="space-y-2">
                   <label className="block font-bold mb-1">Foto Produk *</label>
                   <div className="p-3 bg-white rounded-xl border border-[#6A5D43]/30 space-y-2">
                     <span className="text-[10px] font-bold text-[#6A5D43] uppercase tracking-wider block">
-                      📁 Pilih File dari Perangkat
+                      📁 Pilih File dari Perangkat (Upload ke Supabase)
                     </span>
                     <div className="flex items-center gap-3">
                       <input
@@ -574,20 +582,72 @@ export const AdminModal: React.FC<AdminModalProps> = ({
 
                   {prodImage && (
                     <div className="flex items-center gap-3 p-2 bg-[#F2EFE9] rounded-xl border border-[#6A5D43]/20">
-                      <img src={prodImage} alt="Preview" className="w-12 h-12 object-cover rounded-lg" />
-                      <span className="text-[10px] text-emerald-700 font-bold">✓ Foto Siap Digunakan</span>
+                      <img src={prodImage} alt="Preview" className="w-12 h-12 object-cover rounded-lg border border-[#6A5D43]/20" />
+                      <div className="min-w-0 flex-1">
+                        <span className="text-[10px] text-emerald-700 font-bold block">✓ Foto Siap Digunakan</span>
+                        <p className="text-[10px] text-gray-500 truncate">{prodImage}</p>
+                      </div>
                     </div>
                   )}
                 </div>
 
                 <div>
-                  <label className="block font-bold mb-1">Deskripsi Lengkap</label>
+                  <label className="block font-bold mb-1">Deskripsi Lengkap Produk</label>
                   <textarea
                     rows={3}
                     value={prodDescription}
                     onChange={(e) => setProdDescription(e.target.value)}
-                    className="w-full p-2.5 bg-white rounded-xl border border-[#6A5D43]/30"
+                    placeholder="Tuliskan deskripsi detail produk atau konsep proyek..."
+                    className="w-full p-2.5 bg-white rounded-xl border border-[#6A5D43]/30 focus:outline-none focus:border-[#6A5D43]"
                   />
+                </div>
+
+                <div>
+                  <label className="block font-bold mb-1">Fitur & Spesifikasi Material (Satu per baris)</label>
+                  <textarea
+                    rows={3}
+                    value={prodFeatures}
+                    onChange={(e) => setProdFeatures(e.target.value)}
+                    placeholder="Contoh:&#10;Rangka Kayu Jati Perhutani Grade A&#10;Finishing Matte Premium&#10;Garansi 5 Tahun"
+                    className="w-full p-2.5 bg-white rounded-xl border border-[#6A5D43]/30 focus:outline-none focus:border-[#6A5D43]"
+                  />
+                </div>
+
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className="block font-bold mb-1">Dimensi Ukuran</label>
+                    <input
+                      type="text"
+                      value={prodDimensions}
+                      onChange={(e) => setProdDimensions(e.target.value)}
+                      placeholder="P: 200cm x L: 90cm x T: 75cm"
+                      className="w-full p-2.5 bg-white rounded-xl border border-[#6A5D43]/30 focus:outline-none focus:border-[#6A5D43]"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block font-bold mb-1">Estimasi Pengerjaan (Lead Time)</label>
+                    <input
+                      type="text"
+                      value={prodLeadTime}
+                      onChange={(e) => setProdLeadTime(e.target.value)}
+                      placeholder="3 - 4 Minggu Pengerjaan"
+                      className="w-full p-2.5 bg-white rounded-xl border border-[#6A5D43]/30 focus:outline-none focus:border-[#6A5D43]"
+                    />
+                  </div>
+                </div>
+
+                <div className="flex items-center gap-2 pt-2">
+                  <input
+                    type="checkbox"
+                    id="featCheck"
+                    checked={prodFeatured}
+                    onChange={(e) => setProdFeatured(e.target.checked)}
+                    className="w-4 h-4 text-[#6A5D43] rounded focus:ring-0 cursor-pointer"
+                  />
+                  <label htmlFor="featCheck" className="font-bold text-xs text-[#171818] cursor-pointer">
+                    Tampilkan sebagai Produk Flagship (Halaman Utama)
+                  </label>
                 </div>
 
                 <div className="flex items-center justify-end gap-3 pt-4 border-t border-[#6A5D43]/20">
@@ -601,7 +661,7 @@ export const AdminModal: React.FC<AdminModalProps> = ({
                   <button
                     type="submit"
                     disabled={isUploading || isSaving}
-                    className="px-5 py-2 bg-[#6A5D43] text-white rounded-xl font-bold text-xs flex items-center gap-2 disabled:opacity-50"
+                    className="px-5 py-2 bg-[#6A5D43] text-white rounded-xl font-bold text-xs flex items-center gap-2 hover:bg-[#8C7853] transition-colors disabled:opacity-50"
                   >
                     {isSaving && <Loader2 className="animate-spin w-3.5 h-3.5" />}
                     <span>Simpan Perubahan</span>
