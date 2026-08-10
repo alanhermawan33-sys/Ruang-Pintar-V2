@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { ShoppingBag, Menu, X, MessageSquare, Compass, Phone } from 'lucide-react';
-import { Logo } from './Logo';
+// Import Logo lama dihapus karena kita sudah pakai gambar langsung
 
 interface NavbarProps {
   activeTab: 'home' | 'catalog' | 'profile' | 'contact';
@@ -44,16 +44,25 @@ export const Navbar: React.FC<NavbarProps> = ({
       }`}
     >
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex items-center justify-between">
-        {/* Logo / Brand */}
+        
+        {/* Logo / Brand - SUDAH MENGGUNAKAN LOGO PNG BARU */}
         <button
           onClick={() => setActiveTab('home')}
-          className="text-left focus:outline-none group"
+          className="text-left focus:outline-none group flex items-center gap-3"
         >
-          <Logo
-            variant="compact"
-            size="sm"
-            className={isScrolled ? 'text-[#FAF9F7]' : 'text-[#171818]'}
+          <img 
+            src="https://sumywlwhlwcczhxclijt.supabase.co/storage/v1/object/public/products/21-removebg-preview.png" 
+            alt="Ruang Pintar Logo" 
+            className={`w-12 h-12 object-contain transition-all duration-300 ${isScrolled ? 'brightness-0 invert' : ''}`}
           />
+          <div className="hidden sm:block">
+            <h1 className={`font-heading font-extrabold text-lg tracking-wider transition-colors duration-300 ${isScrolled ? 'text-[#FAF9F7]' : 'text-[#171818]'}`}>
+              RUANG PINTAR
+            </h1>
+            <p className={`text-[10px] font-semibold tracking-widest uppercase transition-colors duration-300 ${isScrolled ? 'text-[#C5A880]' : 'text-[#6A5D43]'}`}>
+              DESIGN & BUILD YOUR IMAGINATION
+            </p>
+          </div>
         </button>
 
         {/* Desktop Nav Links */}
