@@ -1,7 +1,8 @@
 import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
-import { X, Lock, Plus, Edit3, Trash2, Eye, CheckCircle2, Clock, AlertCircle, ShoppingBag, Layers, LayoutDashboard, DollarSign, LogOut, Search, Image as ImageIcon } from 'lucide-react';
+import { X, Lock, Plus, Edit3, Trash2, Eye, CheckCircle2, Clock, AlertCircle, ShoppingBag, Layers, LayoutDashboard, DollarSign, LogOut, Search, Image as ImageIcon, Loader2 } from 'lucide-react';
 import { Product, Order, OrderStatus, ProductCategory } from '../types';
+import { supabase } from '../lib/supabaseClient';
 
 interface AdminModalProps {
   isOpen: boolean;
@@ -50,6 +51,9 @@ export const AdminModal: React.FC<AdminModalProps> = ({
   const [prodLeadTime, setProdLeadTime] = useState('');
   const [prodFeatured, setProdFeatured] = useState<boolean>(false);
 
+  // Uploading State
+  const [isUploading, setIsUploading] = useState<boolean>(false);
+
   // Search in admin tables
   const [catalogSearch, setCatalogSearch] = useState('');
   const [orderSearch, setOrderSearch] = useState('');
@@ -72,12 +76,43 @@ export const AdminModal: React.FC<AdminModalProps> = ({
     }
   };
 
+  // Handler Upload File ke Supabase
+  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    try {
+      setIsUploading(true);
+      const fileExt = file.name.split('.').pop();
+      const fileName = `${Date.now()}.${fileExt}`;
+      const filePath = `${fileName}`;
+
+      // 1. Upload ke Bucket 'products'
+      const { error: uploadError } = await supabase.storage
+        .from('products')
+        .upload(filePath, file);
+
+      if (uploadError) throw uploadError;
+
+      // 2. Dapatkan Link Gambar Publik
+      const { data } = supabase.storage
+        .from('products')
+        .getPublicUrl(filePath);
+
+      setProdImage(data.publicUrl);
+    } catch (error: any) {
+      alert('Gagal mengunggah gambar: ' + error.message);
+    } finally {
+      setIsUploading(false);
+    }
+  };
+
   const openCreateProduct = () => {
     setEditingProduct(null);
     setProdTitle('');
     setProdCategory('Bespoke Furniture');
     setProdPrice(15000000);
-    setProdImage('https://images.unsplash.com/photo-1555041469-a586c61ea9bc?auto=format&fit=crop&q=80&w=1200');
+    setProdImage('');
     setProdDescription('');
     setProdFeatures('Rangka Kayu Jati Perhutani\nFinishing Matte Premium\nGaransi 5 Tahun');
     setProdDimensions('P: 200cm x L: 90cm x T: 75cm');
@@ -102,7 +137,10 @@ export const AdminModal: React.FC<AdminModalProps> = ({
 
   const handleSaveProduct = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!prodTitle.trim() || !prodImage.trim() || prodPrice <= 0) return;
+    if (!prodTitle.trim() || !prodImage.trim() || prodPrice <= 0) {
+      alert('Silakan upload/isi gambar produk terlebih dahulu!');
+      return;
+    }
 
     const featureList = prodFeatures
       .split('\n')
@@ -724,15 +762,42 @@ export const AdminModal: React.FC<AdminModalProps> = ({
                   </div>
                 </div>
 
-                <div>
-                  <label className="block font-bold mb-1">URL Gambar Foto HD *</label>
-                  <input
-                    type="url"
-                    value={prodImage}
-                    onChange={(e) => setProdImage(e.target.value)}
-                    className="w-full p-2.5 bg-white rounded-xl border border-[#6A5D43]/30"
-                    required
-                  />
+                {/* DUA PILIHAN: CHOOSE FILE UNTUK SUPABASE ATAU PASTE URL */}
+                <div className="space-y-2">
+                  <label className="block font-bold mb-1">Foto Produk *</label>
+                  
+                  {/* Option 1: File Upload ke Supabase Storage */}
+                  <div className="p-3 bg-white rounded-xl border border-[#6A5D43]/30 space-y-2">
+                    <span className="text-[10px] font-bold text-[#6A5D43] uppercase tracking-wider block">
+                      📁 Pilih File dari Perangkat (Upload ke Supabase)
+                    </span>
+                    <div className="flex items-center gap-3">
+                      <input
+                        type="file"
+                        accept="image/*"
+                        onChange={handleFileUpload}
+                        disabled={isUploading}
+                        className="w-full text-xs text-gray-500 file:mr-3 file:py-1.5 file:px-3 file:rounded-lg file:border-0 file:text-xs file:font-semibold file:bg-[#6A5D43] file:text-white hover:file:bg-[#8C7853] cursor-pointer"
+                      />
+                      {isUploading && (
+                        <div className="flex items-center gap-1.5 text-[#6A5D43] text-xs font-bold shrink-0">
+                          <Loader2 className="animate-spin w-4 h-4" />
+                          <span>Uploading...</span>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* Preview Foto Jika Terisi */}
+                  {prodImage && (
+                    <div className="flex items-center gap-3 p-2 bg-[#F2EFE9] rounded-xl border border-[#6A5D43]/20">
+                      <img src={prodImage} alt="Preview" className="w-12 h-12 object-cover rounded-lg border border-[#6A5D43]/20" />
+                      <div className="min-w-0 flex-1">
+                        <span className="text-[10px] text-emerald-700 font-bold block">✓ Foto Siap Digunakan</span>
+                        <p className="text-[10px] text-gray-500 truncate">{prodImage}</p>
+                      </div>
+                    </div>
+                  )}
                 </div>
 
                 <div>
@@ -803,7 +868,8 @@ export const AdminModal: React.FC<AdminModalProps> = ({
                   </button>
                   <button
                     type="submit"
-                    className="px-5 py-2 bg-[#6A5D43] text-white rounded-xl font-bold text-xs"
+                    disabled={isUploading}
+                    className="px-5 py-2 bg-[#6A5D43] text-white rounded-xl font-bold text-xs hover:bg-[#8C7853] transition-colors disabled:opacity-50"
                   >
                     Simpan Perubahan
                   </button>
