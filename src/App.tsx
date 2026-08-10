@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import Lenis from 'lenis';
 import { Product, CartItem, Order, OrderStatus } from './types';
 import { INITIAL_PRODUCTS, INITIAL_ORDERS } from './data/initialData';
+import { supabase } from './lib/supabaseClient';
 import { Navbar } from './components/Navbar';
 import { Footer } from './components/Footer';
 import { ProductDetailModal } from './components/ProductDetailModal';
@@ -16,18 +17,9 @@ export default function App() {
   // Active Page Tab State
   const [activeTab, setActiveTab] = useState<'home' | 'catalog' | 'profile' | 'contact'>('home');
 
-  // Products State (Persisted in localStorage)
-  const [products, setProducts] = useState<Product[]>(() => {
-    const saved = localStorage.getItem('ruang_pintar_products');
-    if (saved) {
-      try {
-        return JSON.parse(saved);
-      } catch (e) {
-        console.error('Error parsing saved products:', e);
-      }
-    }
-    return INITIAL_PRODUCTS;
-  });
+  // Products State (Real-time dari Supabase Database)
+  const [products, setProducts] = useState<Product[]>([]);
+  const [isLoadingProducts, setIsLoadingProducts] = useState<boolean>(true);
 
   // Orders State (Persisted in localStorage)
   const [orders, setOrders] = useState<Order[]>(() => {
@@ -63,6 +55,53 @@ export default function App() {
 
   // Hidden Admin Control Center State
   const [isAdminOpen, setIsAdminOpen] = useState<boolean>(false);
+
+  // ----------------------------------------------------
+  // FUNGSI UTAMA: AMBIL DATA PRODUK DARI SUPABASE DATABASE
+  // ----------------------------------------------------
+  const fetchProductsFromSupabase = async () => {
+    try {
+      setIsLoadingProducts(true);
+      const { data, error } = await supabase
+        .from('products')
+        .select('*')
+        .order('created_at', { ascending: false });
+
+      if (error) throw error;
+
+      if (data && data.length > 0) {
+        const mappedProducts: Product[] = data.map((item) => ({
+          id: item.id,
+          title: item.title,
+          category: item.category,
+          price: Number(item.price),
+          image: item.image,
+          description: item.description || '',
+          features: item.features || [],
+          dimensions: item.dimensions || '',
+          leadTime: item.lead_time || '',
+          featured: !!item.featured,
+          gallery: [item.image],
+          type: 'furniture',
+          isAvailable: true
+        }));
+        setProducts(mappedProducts);
+      } else {
+        // Jika database Supabase masih kosong, tampilkan INITIAL_PRODUCTS sebagai cadangan
+        setProducts(INITIAL_PRODUCTS);
+      }
+    } catch (err) {
+      console.error('Gagal mengambil produk dari Supabase, menggunakan data awal:', err);
+      setProducts(INITIAL_PRODUCTS);
+    } finally {
+      setIsLoadingProducts(false);
+    }
+  };
+
+  // Panggil data produk saat aplikasi pertama dibuka
+  useEffect(() => {
+    fetchProductsFromSupabase();
+  }, []);
 
   // Initialize Lenis Smooth Scroll
   useEffect(() => {
@@ -109,11 +148,6 @@ export default function App() {
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, []);
-
-  // Save Products to localStorage
-  useEffect(() => {
-    localStorage.setItem('ruang_pintar_products', JSON.stringify(products));
-  }, [products]);
 
   // Save Orders to localStorage
   useEffect(() => {
@@ -170,22 +204,15 @@ export default function App() {
 
   // Admin Catalog CRUD Operations
   const handleAddProduct = (newProdData: Omit<Product, 'id' | 'createdAt'>) => {
-    const newProduct: Product = {
-      ...newProdData,
-      id: `rp-${Date.now().toString().slice(-4)}`,
-      createdAt: new Date().toISOString().split('T')[0],
-    };
-    setProducts((prev) => [newProduct, ...prev]);
+    fetchProductsFromSupabase();
   };
 
   const handleUpdateProduct = (updatedProd: Product) => {
-    setProducts((prev) =>
-      prev.map((p) => (p.id === updatedProd.id ? updatedProd : p))
-    );
+    fetchProductsFromSupabase();
   };
 
   const handleDeleteProduct = (productId: string) => {
-    setProducts((prev) => prev.filter((p) => p.id !== productId));
+    fetchProductsFromSupabase();
   };
 
   const handleUpdateOrderStatus = (orderId: string, status: OrderStatus) => {
@@ -264,6 +291,7 @@ export default function App() {
         onUpdateProduct={handleUpdateProduct}
         onDeleteProduct={handleDeleteProduct}
         onUpdateOrderStatus={handleUpdateOrderStatus}
+        onRefreshProducts={fetchProductsFromSupabase}
       />
     </div>
   );
