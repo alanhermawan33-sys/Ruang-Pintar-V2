@@ -13,6 +13,7 @@ interface AdminModalProps {
   onUpdateProduct: (product: Product) => void;
   onDeleteProduct: (productId: string) => void;
   onUpdateOrderStatus: (orderId: string, status: OrderStatus) => void;
+  onRefreshProducts?: () => void;
 }
 
 export const AdminModal: React.FC<AdminModalProps> = ({
@@ -24,6 +25,7 @@ export const AdminModal: React.FC<AdminModalProps> = ({
   onUpdateProduct,
   onDeleteProduct,
   onUpdateOrderStatus,
+  onRefreshProducts
 }) => {
   if (!isOpen) return null;
 
@@ -33,10 +35,10 @@ export const AdminModal: React.FC<AdminModalProps> = ({
   const [password, setPassword] = useState<string>('');
   const [loginError, setLoginError] = useState<string>('');
 
-  // Active Admin Tab: 'overview' | 'catalog' | 'orders'
+  // Active Admin Tab
   const [activeTab, setActiveTab] = useState<'overview' | 'catalog' | 'orders'>('overview');
 
-  // Product Form Modal State (for Create & Edit)
+  // Product Form Modal State
   const [isEditingProduct, setIsEditingProduct] = useState<boolean>(false);
   const [editingProduct, setEditingProduct] = useState<Product | null>(null);
 
@@ -51,10 +53,11 @@ export const AdminModal: React.FC<AdminModalProps> = ({
   const [prodLeadTime, setProdLeadTime] = useState('');
   const [prodFeatured, setProdFeatured] = useState<boolean>(false);
 
-  // Uploading State
+  // Uploading & Saving State
   const [isUploading, setIsUploading] = useState<boolean>(false);
+  const [isSaving, setIsSaving] = useState<boolean>(false);
 
-  // Search in admin tables
+  // Search
   const [catalogSearch, setCatalogSearch] = useState('');
   const [orderSearch, setOrderSearch] = useState('');
 
@@ -76,7 +79,7 @@ export const AdminModal: React.FC<AdminModalProps> = ({
     }
   };
 
-  // Handler Upload File ke Supabase
+  // Upload Gambar ke Supabase Storage
   const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
@@ -87,14 +90,12 @@ export const AdminModal: React.FC<AdminModalProps> = ({
       const fileName = `${Date.now()}.${fileExt}`;
       const filePath = `${fileName}`;
 
-      // 1. Upload ke Bucket 'products'
       const { error: uploadError } = await supabase.storage
         .from('products')
         .upload(filePath, file);
 
       if (uploadError) throw uploadError;
 
-      // 2. Dapatkan Link Gambar Publik
       const { data } = supabase.storage
         .from('products')
         .getPublicUrl(filePath);
@@ -128,14 +129,15 @@ export const AdminModal: React.FC<AdminModalProps> = ({
     setProdPrice(prod.price);
     setProdImage(prod.image);
     setProdDescription(prod.description);
-    setProdFeatures(prod.features.join('\n'));
+    setProdFeatures(prod.features ? prod.features.join('\n') : '');
     setProdDimensions(prod.dimensions);
     setProdLeadTime(prod.leadTime);
     setProdFeatured(!!prod.featured);
     setIsEditingProduct(true);
   };
 
-  const handleSaveProduct = (e: React.FormEvent) => {
+  // SIMPAN PRODUK LANGSUNG KE SUPABASE DATABASE
+  const handleSaveProduct = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!prodTitle.trim() || !prodImage.trim() || prodPrice <= 0) {
       alert('Silakan upload/isi gambar produk terlebih dahulu!');
@@ -147,39 +149,56 @@ export const AdminModal: React.FC<AdminModalProps> = ({
       .map((f) => f.trim())
       .filter((f) => f.length > 0);
 
-    if (editingProduct) {
-      // Update
-      onUpdateProduct({
-        ...editingProduct,
-        title: prodTitle.trim(),
-        category: prodCategory,
-        price: Number(prodPrice),
-        image: prodImage.trim(),
-        description: prodDescription.trim(),
-        features: featureList,
-        dimensions: prodDimensions.trim() || 'P: 200cm x L: 90cm',
-        leadTime: prodLeadTime.trim() || '3 Minggu',
-        featured: prodFeatured,
-      });
-    } else {
-      // Create
-      onAddProduct({
-        title: prodTitle.trim(),
-        category: prodCategory,
-        price: Number(prodPrice),
-        image: prodImage.trim(),
-        gallery: [prodImage.trim()],
-        description: prodDescription.trim(),
-        features: featureList,
-        dimensions: prodDimensions.trim() || 'P: 200cm x L: 90cm',
-        leadTime: prodLeadTime.trim() || '3 Minggu',
-        featured: prodFeatured,
-        type: 'furniture',
-        isAvailable: true,
-      });
-    }
+    try {
+      setIsSaving(true);
 
-    setIsEditingProduct(false);
+      const dbData = {
+        title: prodTitle.trim(),
+        category: prodCategory,
+        price: Number(prodPrice),
+        image: prodImage.trim(),
+        description: prodDescription.trim(),
+        features: featureList,
+        dimensions: prodDimensions.trim() || 'P: 200cm x L: 90cm',
+        lead_time: prodLeadTime.trim() || '3 Minggu',
+        featured: prodFeatured,
+      };
+
+      if (editingProduct) {
+        // UPDATE
+        const { error } = await supabase
+          .from('products')
+          .update(dbData)
+          .eq('id', editingProduct.id);
+        if (error) throw error;
+      } else {
+        // INSERT NEW
+        const { error } = await supabase
+          .from('products')
+          .insert([dbData]);
+        if (error) throw error;
+      }
+
+      if (onRefreshProducts) onRefreshProducts();
+      setIsEditingProduct(false);
+      alert('Produk berhasil disimpan ke Supabase Database!');
+    } catch (err: any) {
+      alert('Gagal menyimpan produk ke database: ' + err.message);
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  // HAPUS PRODUK DARI SUPABASE DATABASE
+  const handleDeleteProduct = async (id: string) => {
+    if (!confirm('Yakin ingin menghapus produk ini?')) return;
+    try {
+      const { error } = await supabase.from('products').delete().eq('id', id);
+      if (error) throw error;
+      if (onRefreshProducts) onRefreshProducts();
+    } catch (err: any) {
+      alert('Gagal menghapus produk: ' + err.message);
+    }
   };
 
   const totalSalesValue = orders.reduce((sum, ord) => sum + ord.totalAmount, 0);
@@ -202,7 +221,6 @@ export const AdminModal: React.FC<AdminModalProps> = ({
   return (
     <AnimatePresence>
       <div className="fixed inset-0 z-50 flex items-center justify-center p-4 sm:p-6 md:p-8 overflow-y-auto">
-        {/* Backdrop */}
         <motion.div
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
@@ -211,7 +229,6 @@ export const AdminModal: React.FC<AdminModalProps> = ({
           className="fixed inset-0 bg-[#171818]/90 backdrop-blur-md"
         />
 
-        {/* Admin Container Window */}
         <motion.div
           initial={{ opacity: 0, scale: 0.95 }}
           animate={{ opacity: 1, scale: 1 }}
@@ -258,9 +275,7 @@ export const AdminModal: React.FC<AdminModalProps> = ({
             </div>
           </div>
 
-          {/* Body Content */}
           {!isAuthenticated ? (
-            /* Login Form UI */
             <div className="flex-1 flex items-center justify-center p-6 bg-[#F2EFE9]">
               <div className="w-full max-w-md bg-[#FAF9F7] p-8 rounded-2xl border border-[#6A5D43]/30 shadow-xl space-y-6">
                 <div className="text-center space-y-2">
@@ -285,7 +300,7 @@ export const AdminModal: React.FC<AdminModalProps> = ({
                       placeholder="admin"
                       value={username}
                       onChange={(e) => setUsername(e.target.value)}
-                      className="w-full px-4 py-3 bg-white text-xs rounded-xl border border-[#6A5D43]/30 focus:outline-none focus:border-[#6A5D43] focus:ring-1 focus:ring-[#6A5D43]"
+                      className="w-full px-4 py-3 bg-white text-xs rounded-xl border border-[#6A5D43]/30 focus:outline-none focus:border-[#6A5D43]"
                       required
                     />
                   </div>
@@ -299,7 +314,7 @@ export const AdminModal: React.FC<AdminModalProps> = ({
                       placeholder="••••••••"
                       value={password}
                       onChange={(e) => setPassword(e.target.value)}
-                      className="w-full px-4 py-3 bg-white text-xs rounded-xl border border-[#6A5D43]/30 focus:outline-none focus:border-[#6A5D43] focus:ring-1 focus:ring-[#6A5D43]"
+                      className="w-full px-4 py-3 bg-white text-xs rounded-xl border border-[#6A5D43]/30 focus:outline-none focus:border-[#6A5D43]"
                       required
                     />
                   </div>
@@ -321,9 +336,7 @@ export const AdminModal: React.FC<AdminModalProps> = ({
               </div>
             </div>
           ) : (
-            /* Admin Authenticated Dashboard */
             <div className="flex-1 flex flex-col md:flex-row overflow-hidden">
-              {/* Admin Sidebar Navigation */}
               <div className="w-full md:w-64 bg-[#171818] text-[#FAF9F7] p-4 border-r border-[#6A5D43]/30 flex md:flex-col justify-between shrink-0">
                 <div className="space-y-2 w-full flex md:flex-col gap-2 md:gap-0">
                   <button
@@ -364,9 +377,7 @@ export const AdminModal: React.FC<AdminModalProps> = ({
                 </div>
               </div>
 
-              {/* Admin Content View Area */}
               <div className="flex-1 p-6 md:p-8 overflow-y-auto bg-[#FAF9F7]">
-                {/* TAB 1: OVERVIEW */}
                 {activeTab === 'overview' && (
                   <div className="space-y-8">
                     <div>
@@ -378,7 +389,6 @@ export const AdminModal: React.FC<AdminModalProps> = ({
                       </p>
                     </div>
 
-                    {/* Stats Cards */}
                     <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
                       <div className="p-5 bg-white rounded-2xl border border-[#6A5D43]/20 shadow-md">
                         <div className="flex items-center justify-between text-[#6A5D43] mb-2">
@@ -388,22 +398,6 @@ export const AdminModal: React.FC<AdminModalProps> = ({
                         <div className="text-xl font-heading font-bold text-[#171818]">
                           {formatRupiah(totalSalesValue)}
                         </div>
-                        <span className="text-[10px] text-[#171818]/60 mt-1 block">
-                          Akumulasi dari {orders.length} pesanan masuk
-                        </span>
-                      </div>
-
-                      <div className="p-5 bg-white rounded-2xl border border-[#6A5D43]/20 shadow-md">
-                        <div className="flex items-center justify-between text-[#6A5D43] mb-2">
-                          <span className="text-xs font-bold uppercase tracking-wider">Pesanan Masuk</span>
-                          <ShoppingBag className="w-5 h-5" />
-                        </div>
-                        <div className="text-2xl font-heading font-bold text-[#171818]">
-                          {orders.length}
-                        </div>
-                        <span className="text-[10px] text-amber-700 font-semibold mt-1 block">
-                          {pendingOrdersCount} Pending • {inConsultationOrdersCount} Dalam Konsultasi
-                        </span>
                       </div>
 
                       <div className="p-5 bg-white rounded-2xl border border-[#6A5D43]/20 shadow-md">
@@ -414,78 +408,11 @@ export const AdminModal: React.FC<AdminModalProps> = ({
                         <div className="text-2xl font-heading font-bold text-[#171818]">
                           {products.length}
                         </div>
-                        <span className="text-[10px] text-[#171818]/60 mt-1 block">
-                          Produk bespoke & karya arsitektur
-                        </span>
-                      </div>
-
-                      <div className="p-5 bg-white rounded-2xl border border-[#6A5D43]/20 shadow-md">
-                        <div className="flex items-center justify-between text-[#6A5D43] mb-2">
-                          <span className="text-xs font-bold uppercase tracking-wider">Flagship Items</span>
-                          <CheckCircle2 className="w-5 h-5" />
-                        </div>
-                        <div className="text-2xl font-heading font-bold text-[#171818]">
-                          {products.filter((p) => p.featured).length}
-                        </div>
-                        <span className="text-[10px] text-[#171818]/60 mt-1 block">
-                          Ditampilkan di halaman depan
-                        </span>
-                      </div>
-                    </div>
-
-                    {/* Recent Orders Overview Table */}
-                    <div className="bg-white p-6 rounded-2xl border border-[#6A5D43]/20 shadow-md">
-                      <div className="flex items-center justify-between mb-4">
-                        <h4 className="font-heading font-bold text-sm text-[#171818]">
-                          Pesanan Terbaru Masuk
-                        </h4>
-                        <button
-                          onClick={() => setActiveTab('orders')}
-                          className="text-xs font-bold text-[#6A5D43] hover:underline"
-                        >
-                          Lihat Semua ({orders.length}) →
-                        </button>
-                      </div>
-
-                      <div className="overflow-x-auto">
-                        <table className="w-full text-left text-xs">
-                          <thead>
-                            <tr className="border-b border-[#6A5D43]/20 text-[#6A5D43] font-bold uppercase tracking-wider">
-                              <th className="pb-3">ID Order</th>
-                              <th className="pb-3">Pemesan</th>
-                              <th className="pb-3">Total Nilai</th>
-                              <th className="pb-3">Status</th>
-                            </tr>
-                          </thead>
-                          <tbody className="divide-y divide-[#6A5D43]/10">
-                            {orders.slice(0, 5).map((ord) => (
-                              <tr key={ord.id} className="hover:bg-[#FAF9F7]">
-                                <td className="py-3 font-mono font-bold text-[#171818]">{ord.id}</td>
-                                <td className="py-3 font-semibold text-[#171818]">{ord.customerName}</td>
-                                <td className="py-3 font-bold text-[#6A5D43]">{formatRupiah(ord.totalAmount)}</td>
-                                <td className="py-3">
-                                  <span
-                                    className={`px-2.5 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider ${
-                                      ord.status === 'Completed'
-                                        ? 'bg-emerald-100 text-emerald-800'
-                                        : ord.status === 'In Consultation'
-                                        ? 'bg-blue-100 text-blue-800'
-                                        : 'bg-amber-100 text-amber-800'
-                                    }`}
-                                  >
-                                    {ord.status}
-                                  </span>
-                                </td>
-                              </tr>
-                            ))}
-                          </tbody>
-                        </table>
                       </div>
                     </div>
                   </div>
                 )}
 
-                {/* TAB 2: CATALOG MANAGEMENT */}
                 {activeTab === 'catalog' && (
                   <div className="space-y-6">
                     <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
@@ -493,21 +420,17 @@ export const AdminModal: React.FC<AdminModalProps> = ({
                         <h3 className="text-xl font-heading font-bold text-[#171818]">
                           Kelola Katalog Produk & Karya
                         </h3>
-                        <p className="text-xs text-[#171818]/70">
-                          Tambah produk baru, edit spesifikasi, ubah foto, dan atur ketersediaan.
-                        </p>
                       </div>
 
                       <button
                         onClick={openCreateProduct}
-                        className="px-4 py-2.5 bg-[#6A5D43] hover:bg-[#8C7853] text-[#FAF9F7] text-xs font-heading font-bold uppercase tracking-wider rounded-xl flex items-center gap-2 transition-all shadow-md shrink-0"
+                        className="px-4 py-2.5 bg-[#6A5D43] hover:bg-[#8C7853] text-[#FAF9F7] text-xs font-heading font-bold uppercase tracking-wider rounded-xl flex items-center gap-2 shadow-md shrink-0"
                       >
                         <Plus className="w-4 h-4" />
                         Tambah Produk Baru
                       </button>
                     </div>
 
-                    {/* Search */}
                     <div className="relative max-w-sm">
                       <Search className="w-4 h-4 absolute left-3 top-3 text-[#6A5D43]" />
                       <input
@@ -515,11 +438,10 @@ export const AdminModal: React.FC<AdminModalProps> = ({
                         placeholder="Cari nama produk / kategori..."
                         value={catalogSearch}
                         onChange={(e) => setCatalogSearch(e.target.value)}
-                        className="w-full pl-9 pr-3 py-2 text-xs bg-white rounded-xl border border-[#6A5D43]/30 focus:outline-none focus:border-[#6A5D43]"
+                        className="w-full pl-9 pr-3 py-2 text-xs bg-white rounded-xl border border-[#6A5D43]/30"
                       />
                     </div>
 
-                    {/* Products Grid Table */}
                     <div className="bg-white rounded-2xl border border-[#6A5D43]/20 shadow-md overflow-hidden">
                       <div className="overflow-x-auto">
                         <table className="w-full text-left text-xs">
@@ -529,7 +451,6 @@ export const AdminModal: React.FC<AdminModalProps> = ({
                               <th className="p-3.5">Nama Produk</th>
                               <th className="p-3.5">Kategori</th>
                               <th className="p-3.5">Harga</th>
-                              <th className="p-3.5">Flagship</th>
                               <th className="p-3.5 text-right">Aksi</th>
                             </tr>
                           </thead>
@@ -546,28 +467,17 @@ export const AdminModal: React.FC<AdminModalProps> = ({
                                 <td className="p-3.5 font-bold text-[#171818] max-w-xs">{p.title}</td>
                                 <td className="p-3.5 font-semibold text-[#6A5D43]">{p.category}</td>
                                 <td className="p-3.5 font-extrabold text-[#171818]">{formatRupiah(p.price)}</td>
-                                <td className="p-3.5">
-                                  {p.featured ? (
-                                    <span className="text-[10px] font-bold bg-[#6A5D43] text-white px-2 py-0.5 rounded-full">
-                                      Ya
-                                    </span>
-                                  ) : (
-                                    <span className="text-[10px] text-gray-400">Tidak</span>
-                                  )}
-                                </td>
                                 <td className="p-3.5 text-right">
                                   <div className="flex items-center justify-end gap-2">
                                     <button
                                       onClick={() => openEditProduct(p)}
                                       className="p-2 bg-[#F2EFE9] hover:bg-[#6A5D43] hover:text-white text-[#171818] rounded-lg transition-colors"
-                                      title="Edit Produk"
                                     >
                                       <Edit3 className="w-3.5 h-3.5" />
                                     </button>
                                     <button
-                                      onClick={() => onDeleteProduct(p.id)}
+                                      onClick={() => handleDeleteProduct(p.id)}
                                       className="p-2 bg-red-100 hover:bg-red-700 hover:text-white text-red-700 rounded-lg transition-colors"
-                                      title="Hapus Produk"
                                     >
                                       <Trash2 className="w-3.5 h-3.5" />
                                     </button>
@@ -581,131 +491,11 @@ export const AdminModal: React.FC<AdminModalProps> = ({
                     </div>
                   </div>
                 )}
-
-                {/* TAB 3: ORDER MONITORING */}
-                {activeTab === 'orders' && (
-                  <div className="space-y-6">
-                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-                      <div>
-                        <h3 className="text-xl font-heading font-bold text-[#171818]">
-                          Monitor Pesanan & Status Konsultasi
-                        </h3>
-                        <p className="text-xs text-[#171818]/70">
-                          Pantau pesanan masuk dari WhatsApp, perbarui status, dan catat alamat proyek.
-                        </p>
-                      </div>
-                    </div>
-
-                    {/* Search */}
-                    <div className="relative max-w-sm">
-                      <Search className="w-4 h-4 absolute left-3 top-3 text-[#6A5D43]" />
-                      <input
-                        type="text"
-                        placeholder="Cari nama pemesan / no HP / ID order..."
-                        value={orderSearch}
-                        onChange={(e) => setOrderSearch(e.target.value)}
-                        className="w-full pl-9 pr-3 py-2 text-xs bg-white rounded-xl border border-[#6A5D43]/30 focus:outline-none focus:border-[#6A5D43]"
-                      />
-                    </div>
-
-                    {/* Orders Cards List */}
-                    <div className="space-y-4">
-                      {filteredOrders.length === 0 ? (
-                        <div className="p-8 text-center bg-white rounded-2xl border border-[#6A5D43]/20">
-                          <p className="text-xs text-gray-500">Belum ada pesanan yang sesuai pencarian.</p>
-                        </div>
-                      ) : (
-                        filteredOrders.map((ord) => (
-                          <div
-                            key={ord.id}
-                            className="bg-white p-5 rounded-2xl border border-[#6A5D43]/20 shadow-md space-y-4"
-                          >
-                            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-[#6A5D43]/15 pb-3">
-                              <div>
-                                <span className="font-mono text-xs font-extrabold text-[#6A5D43]">
-                                  {ord.id}
-                                </span>
-                                <h4 className="font-heading font-bold text-base text-[#171818]">
-                                  {ord.customerName} • {ord.phone}
-                                </h4>
-                                <p className="text-xs text-[#171818]/70 mt-0.5">
-                                  📍 {ord.address}
-                                </p>
-                              </div>
-
-                              {/* Status Selector */}
-                              <div className="flex items-center gap-2">
-                                <span className="text-xs font-bold text-[#171818]">Status:</span>
-                                <select
-                                  value={ord.status}
-                                  onChange={(e) =>
-                                    onUpdateOrderStatus(ord.id, e.target.value as OrderStatus)
-                                  }
-                                  className="text-xs font-bold px-3 py-1.5 rounded-xl border border-[#6A5D43]/30 bg-[#FAF9F7] focus:outline-none"
-                                >
-                                  <option value="Pending">Pending</option>
-                                  <option value="In Consultation">In Consultation</option>
-                                  <option value="Completed">Completed</option>
-                                  <option value="Cancelled">Cancelled</option>
-                                </select>
-                              </div>
-                            </div>
-
-                            {/* Ordered Items */}
-                            <div className="space-y-2">
-                              <span className="text-[11px] font-bold uppercase text-[#6A5D43] tracking-wider">
-                                Items Pesanan:
-                              </span>
-                              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                                {ord.items.map((item, idx) => (
-                                  <div
-                                    key={idx}
-                                    className="flex items-center gap-3 p-2 bg-[#FAF9F7] rounded-xl border border-[#6A5D43]/15"
-                                  >
-                                    <img
-                                      src={item.product.image}
-                                      alt={item.product.title}
-                                      className="w-10 h-10 rounded-lg object-cover"
-                                    />
-                                    <div className="min-w-0 flex-1">
-                                      <p className="text-xs font-bold text-[#171818] truncate">
-                                        {item.product.title}
-                                      </p>
-                                      <p className="text-[10px] text-[#6A5D43] font-semibold">
-                                        {item.quantity}x • {formatRupiah(item.product.price)}
-                                      </p>
-                                    </div>
-                                  </div>
-                                ))}
-                              </div>
-                            </div>
-
-                            {ord.notes && (
-                              <div className="p-2.5 bg-amber-50 text-amber-900 rounded-xl text-xs border border-amber-200">
-                                <strong>Catatan Khusus:</strong> {ord.notes}
-                              </div>
-                            )}
-
-                            <div className="pt-2 border-t border-[#6A5D43]/10 flex items-center justify-between text-xs">
-                              <span className="text-gray-500">
-                                Dibuat pada: {new Date(ord.createdAt).toLocaleDateString('id-ID')}
-                              </span>
-                              <span className="font-heading font-extrabold text-sm text-[#171818]">
-                                Total: {formatRupiah(ord.totalAmount)}
-                              </span>
-                            </div>
-                          </div>
-                        ))
-                      )}
-                    </div>
-                  </div>
-                )}
               </div>
             </div>
           )}
         </motion.div>
 
-        {/* Modal Sub-window for Adding/Editing Product */}
         {isEditingProduct && (
           <div className="fixed inset-0 z-60 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm">
             <div className="bg-[#FAF9F7] text-[#171818] p-6 sm:p-8 rounded-3xl max-w-xl w-full max-h-[90vh] overflow-y-auto space-y-4 border border-[#6A5D43]">
@@ -713,10 +503,7 @@ export const AdminModal: React.FC<AdminModalProps> = ({
                 <h4 className="font-heading font-bold text-lg text-[#171818]">
                   {editingProduct ? 'Edit Produk Katalog' : 'Tambah Produk Baru'}
                 </h4>
-                <button
-                  onClick={() => setIsEditingProduct(false)}
-                  className="p-1 text-gray-500 hover:text-black"
-                >
+                <button onClick={() => setIsEditingProduct(false)} className="p-1 text-gray-500 hover:text-black">
                   <X className="w-5 h-5" />
                 </button>
               </div>
@@ -762,14 +549,11 @@ export const AdminModal: React.FC<AdminModalProps> = ({
                   </div>
                 </div>
 
-                {/* DUA PILIHAN: CHOOSE FILE UNTUK SUPABASE ATAU PASTE URL */}
                 <div className="space-y-2">
                   <label className="block font-bold mb-1">Foto Produk *</label>
-                  
-                  {/* Option 1: File Upload ke Supabase Storage */}
                   <div className="p-3 bg-white rounded-xl border border-[#6A5D43]/30 space-y-2">
                     <span className="text-[10px] font-bold text-[#6A5D43] uppercase tracking-wider block">
-                      📁 Pilih File dari Perangkat (Upload ke Supabase)
+                      📁 Pilih File dari Perangkat
                     </span>
                     <div className="flex items-center gap-3">
                       <input
@@ -788,14 +572,10 @@ export const AdminModal: React.FC<AdminModalProps> = ({
                     </div>
                   </div>
 
-                  {/* Preview Foto Jika Terisi */}
                   {prodImage && (
                     <div className="flex items-center gap-3 p-2 bg-[#F2EFE9] rounded-xl border border-[#6A5D43]/20">
-                      <img src={prodImage} alt="Preview" className="w-12 h-12 object-cover rounded-lg border border-[#6A5D43]/20" />
-                      <div className="min-w-0 flex-1">
-                        <span className="text-[10px] text-emerald-700 font-bold block">✓ Foto Siap Digunakan</span>
-                        <p className="text-[10px] text-gray-500 truncate">{prodImage}</p>
-                      </div>
+                      <img src={prodImage} alt="Preview" className="w-12 h-12 object-cover rounded-lg" />
+                      <span className="text-[10px] text-emerald-700 font-bold">✓ Foto Siap Digunakan</span>
                     </div>
                   )}
                 </div>
@@ -810,54 +590,6 @@ export const AdminModal: React.FC<AdminModalProps> = ({
                   />
                 </div>
 
-                <div>
-                  <label className="block font-bold mb-1">Fitur & Spesifikasi Material (Satu per baris)</label>
-                  <textarea
-                    rows={3}
-                    value={prodFeatures}
-                    onChange={(e) => setProdFeatures(e.target.value)}
-                    placeholder="Contoh: Rangka Solid Teakwood&#10;Kain Boucle French&#10;Garansi 10 Tahun"
-                    className="w-full p-2.5 bg-white rounded-xl border border-[#6A5D43]/30"
-                  />
-                </div>
-
-                <div className="grid grid-cols-2 gap-3">
-                  <div>
-                    <label className="block font-bold mb-1">Dimensi Ukuran</label>
-                    <input
-                      type="text"
-                      value={prodDimensions}
-                      onChange={(e) => setProdDimensions(e.target.value)}
-                      placeholder="P: 200cm x L: 90cm"
-                      className="w-full p-2.5 bg-white rounded-xl border border-[#6A5D43]/30"
-                    />
-                  </div>
-
-                  <div>
-                    <label className="block font-bold mb-1">Estimasi Pengerjaan</label>
-                    <input
-                      type="text"
-                      value={prodLeadTime}
-                      onChange={(e) => setProdLeadTime(e.target.value)}
-                      placeholder="3 - 4 Minggu"
-                      className="w-full p-2.5 bg-white rounded-xl border border-[#6A5D43]/30"
-                    />
-                  </div>
-                </div>
-
-                <div className="flex items-center gap-2 pt-2">
-                  <input
-                    type="checkbox"
-                    id="featCheck"
-                    checked={prodFeatured}
-                    onChange={(e) => setProdFeatured(e.target.checked)}
-                    className="w-4 h-4 text-[#6A5D43] rounded"
-                  />
-                  <label htmlFor="featCheck" className="font-bold text-xs text-[#171818]">
-                    Tampilkan sebagai Produk Flagship di Halaman Utama
-                  </label>
-                </div>
-
                 <div className="flex items-center justify-end gap-3 pt-4 border-t border-[#6A5D43]/20">
                   <button
                     type="button"
@@ -868,10 +600,11 @@ export const AdminModal: React.FC<AdminModalProps> = ({
                   </button>
                   <button
                     type="submit"
-                    disabled={isUploading}
-                    className="px-5 py-2 bg-[#6A5D43] text-white rounded-xl font-bold text-xs hover:bg-[#8C7853] transition-colors disabled:opacity-50"
+                    disabled={isUploading || isSaving}
+                    className="px-5 py-2 bg-[#6A5D43] text-white rounded-xl font-bold text-xs flex items-center gap-2 disabled:opacity-50"
                   >
-                    Simpan Perubahan
+                    {isSaving && <Loader2 className="animate-spin w-3.5 h-3.5" />}
+                    <span>Simpan Perubahan</span>
                   </button>
                 </div>
               </form>
