@@ -8,7 +8,7 @@ export const ProfileView: React.FC = () => {
     {
       name: 'Aditya Pratama, S.Ars., IAI',
       role: 'Principal Architect & Founder',
-      image: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&q=80&w=800',
+      image: 'https://drive.google.com/file/d/10YRIZTAK4YBagGAZ9RFT5A_BZWdPXI6A/view?usp=drive_link',
       description: 'Lulusan Arsitektur ITB dengan pengalaman 15+ tahun merancang villa mewah dan panggung eksibisi di Jakarta & Bali.'
     },
     {
