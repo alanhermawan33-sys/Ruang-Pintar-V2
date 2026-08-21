@@ -51,7 +51,7 @@ export const Navbar: React.FC<NavbarProps> = ({
           className="text-left focus:outline-none group flex items-center gap-3"
         >
           <img 
-            src="https://sumywlwhlwcczhxclijt.supabase.co/storage/v1/object/public/products/21-removebg-preview.png" 
+            src="https://sumywlwhlwcczhxclijt.supabase.co/storage/v1/object/public/products/1.%20kenang%20kita.png" 
             alt="Ruang Pintar Logo" 
             className={`w-12 h-12 object-contain transition-all duration-300 ${isScrolled ? 'brightness-0 invert' : ''}`}
           />
