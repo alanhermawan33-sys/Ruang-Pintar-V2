@@ -50,7 +50,7 @@ export const HomeView: React.FC<HomeViewProps> = ({
             className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-[#FAF9F7]/10 backdrop-blur-md border border-[#6A5D43]/40 text-[#C5A880] text-xs font-heading font-bold tracking-[0.25em] uppercase shadow-xl"
           >
             <Sparkles className="w-4 h-4 text-[#C5A880]" />
-            LUXURY ARCHITECTURE & INTERIOR STUDIO
+            AGUNG PROJECT
           </motion.div>
 
           {/* Grand Emblem Logo */}
