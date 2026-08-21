@@ -57,7 +57,7 @@ export const Navbar: React.FC<NavbarProps> = ({
           />
           <div className="hidden sm:block">
             <h1 className={`font-heading font-extrabold text-lg tracking-wider transition-colors duration-300 ${isScrolled ? 'text-[#FAF9F7]' : 'text-[#171818]'}`}>
-              RUANG PINTAR
+              KENANG KITA
             </h1>
             <p className={`text-[10px] font-semibold tracking-widest uppercase transition-colors duration-300 ${isScrolled ? 'text-[#C5A880]' : 'text-[#6A5D43]'}`}>
               DESIGN & BUILD YOUR IMAGINATION
