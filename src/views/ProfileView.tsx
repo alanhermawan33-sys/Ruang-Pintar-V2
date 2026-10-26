@@ -35,7 +35,7 @@ export const ProfileView: React.FC = () => {
           </div>
 
           <h1 className="text-3xl sm:text-5xl font-heading font-bold leading-tight">
-            Warisan Kerajinan & Presisi Arsitektur Modern
+            Warisan Kerajinan & Presisi Arsitektur Modernnnnnn
           </h1>
 
           <p className="text-xs sm:text-sm text-[#FAF9F7]/80 leading-relaxed font-body">
